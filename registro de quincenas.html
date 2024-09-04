@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Quincenas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #e0f7fa; /* Azul claro */
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #ffffff; /* Blanco */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #00695c; /* Verde oscuro */
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #00897b; /* Verde medio */
+            border-radius: 4px;
+        }
+        button {
+            background-color: #00796b; /* Verde medio */
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #004d40; /* Verde oscuro */
+        }
+        .entry {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #b2dfdb; /* Verde claro */
+            border-radius: 4px;
+        }
+        .entry h3 {
+            margin: 0;
+            color: #004d40; /* Verde oscuro */
+        }
+        .hidden {
+            display: none;
+        }
+        .button-group {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        #importFile {
+            display: none;
+        }
+        .results {
+            background-color: #e0f2f1; /* Azul muy claro */
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .results .entry {
+            background-color: #b2dfdb; /* Verde claro */
+        }
+        .results .entry:hover {
+            background-color: #80cbc4; /* Verde intermedio */
+        }
+    </style>
+    <!-- Incluye la biblioteca SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h1>Registro de Quincenas</h1>
+   
+    <div class="input-form">
+        <h2>Agregar o Modificar Matrícula</h2>
+        <input type="text" id="matricula" placeholder="Matrícula">
+        <input type="text" id="nombre" placeholder="Nombre">
+        <input type="text" id="primeraQuincena" placeholder="1ra Quincena">
+        <input type="text" id="segundaQuincena" placeholder="2da Quincena">
+        <button id="agregarBtn" onclick="agregarMatricula()">Agregar Matrícula</button>
+        <button id="modificarBtn" class="hidden" onclick="modificarMatricula()">Guardar Cambios</button>
+    </div>
+   
+    <div class="search">
+        <h2>Buscar Matrícula</h2>
+        <input type="text" id="busqueda" placeholder="Buscar por matrícula" oninput="buscarMatricula()">
+    </div>
+   
+    <div class="results" id="resultados">
+        <!-- Los resultados de la búsqueda aparecerán aquí -->
+    </div>
+   
+    <div class="summary hidden" id="resumen">
+        <h2>Resumen</h2>
+        <div id="resumenContent"></div>
+        <button onclick="reiniciar()">Comenzar de Nuevo</button>
+    </div>
+
+    <div class="button-group">
+        <button onclick="exportarExcel()">Exportar a Excel</button>
+        <button onclick="document.getElementById('importFile').click()">Importar desde Excel</button>
+        <input type="file" id="importFile" accept=".xlsx" onchange="importarExcel(event)">
+        <button onclick="limpiarRegistros()">Limpiar Todo</button>
+    </div>
+</div>
+
+<script>
+    let matriculas = [];
+    let matriculaEnEdicion = null;
+
+    window.onload = function() {
+        cargarDatosDeLocalStorage();
+    };
+
+    function guardarDatosEnLocalStorage() {
+        localStorage.setItem('matriculas', JSON.stringify(matriculas));
+    }
+
+    function cargarDatosDeLocalStorage() {
+        const savedData = localStorage.getItem('matriculas');
+        if (savedData) {
+            matriculas = JSON.parse(savedData);
+            mostrarResultados(matriculas);
+        }
+    }
+
+    function agregarMatricula() {
+        const matricula = document.getElementById('matricula').value;
+        const nombre = document.getElementById('nombre').value;
+        const primeraQuincena = document.getElementById('primeraQuincena').value;
+        const segundaQuincena = document.getElementById('segundaQuincena').value;
+
+        if(matricula && nombre && primeraQuincena && segundaQuincena) {
+            matriculas.push({ matricula, nombre, primeraQuincena, segundaQuincena });
+            guardarDatosEnLocalStorage(); 
+            alert('Matrícula agregada correctamente.');
+            limpiarFormulario();
+            mostrarResultados(matriculas);
+        } else {
+            alert('Por favor, completa todos los campos.');
+        }
+    }
+
+    function modificarMatricula() {
+        if (matriculaEnEdicion !== null) {
+            const matricula = document.getElementById('matricula').value;
+            const nombre = document.getElementById('nombre').value;
+            const primeraQuincena = document.getElementById('primeraQuincena').value;
+            const segundaQuincena = document.getElementById('segundaQuincena').value;
+
+            if(matricula && nombre && primeraQuincena && segundaQuincena) {
+                matriculas[matriculaEnEdicion] = { matricula, nombre, primeraQuincena, segundaQuincena };
+                guardarDatosEnLocalStorage();
+                alert('Matrícula modificada correctamente.');
+                limpiarFormulario();
+                mostrarResultados(matriculas);
+                matriculaEnEdicion = null;
+                document.getElementById('agregarBtn').classList.remove('hidden');
+                document.getElementById('modificarBtn').classList.add('hidden');
+            } else {
+                alert('Por favor, completa todos los campos.');
+            }
+        }
+    }
+
+    function limpiarFormulario() {
+        document.getElementById('matricula').value = '';
+        document.getElementById('nombre').value = '';
+        document.getElementById('primeraQuincena').value = '';
+        document.getElementById('segundaQuincena').value = '';
+    }
+
+    function buscarMatricula() {
+        const busqueda = document.getElementById('busqueda').value.toLowerCase();
+        const resultadosFiltrados = matriculas.filter(m => m.matricula.toLowerCase().includes(busqueda));
+        mostrarResultados(resultadosFiltrados);
+    }
+
+    function mostrarResultados(lista) {
+        const resultadosDiv = document.getElementById('resultados');
+        resultadosDiv.innerHTML = '';
+
+        lista.forEach((m, index) => {
+            const div = document.createElement('div');
+            div.classList.add('entry');
+            div.innerHTML = `
+                <h3>Matrícula: ${m.matricula}</h3>
+                <p>Nombre: ${m.nombre}</p>
+                <p>1ra Quincena: ${m.primeraQuincena}</p>
+                <p>2da Quincena: ${m.segundaQuincena}</p>
+                <button onclick="editarMatricula(${index})">Editar</button>
+            `;
+            resultadosDiv.appendChild(div);
+        });
+    }
+
+    function editarMatricula(index) {
+        const matricula = matriculas[index];
+        document.getElementById('matricula').value = matricula.matricula;
+        document.getElementById('nombre').value = matricula.nombre;
+        document.getElementById('primeraQuincena').value = matricula.primeraQuincena;
+        document.getElementById('segundaQuincena').value = matricula.segundaQuincena;
+
+        matriculaEnEdicion = index;
+        document.getElementById('agregarBtn').classList.add('hidden');
+        document.getElementById('modificarBtn').classList.remove('hidden');
+    }
+
+    function reiniciar() {
+        document.getElementById('resumen').classList.add('hidden');
+        document.getElementById('busqueda').value = '';
+        mostrarResultados(matriculas);
+    }
+
+    function exportarExcel() {
+        if (matriculas.length === 0) {
+            alert('No hay registros para exportar.');
+            return;
+        }
+
+        // Crear un nuevo libro de Excel
+        const wb = XLSX.utils.book_new();
+        const ws_data = [
+            ["Matrícula", "Nombre", "1ra Quincena", "2da Quincena"],
+            ...matriculas.map(m => [m.matricula, m.nombre, m.primeraQuincena, m.segundaQuincena])
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, "Matrículas");
+
+        // Descargar el archivo Excel
+        XLSX.writeFile(wb, "matriculas_quincenas.xlsx");
+    }
+
+    function importarExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            matriculas = json.slice(1).map(row => ({
+                matricula: row[0].trim(),
+                nombre: row[1].trim(),
+                primeraQuincena: row[2].trim(),
+                segundaQuincena: row[3].trim()
+            })).filter(m => m.matricula); // Filtrar entradas vacías
+
+            guardarDatosEnLocalStorage();
+            mostrarResultados(matriculas);
+            alert("Datos importados correctamente.");
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function limpiarRegistros() {
+        if (confirm("¿Estás seguro de que deseas limpiar todos los registros? Esta acción no se puede deshacer.")) {
+            matriculas = [];
+            guardarDatosEnLocalStorage();
+            mostrarResultados(matriculas);
+            alert("Todos los registros han sido eliminados.");
+        }
+    }
+</script>
+
+</body>
+</html>
